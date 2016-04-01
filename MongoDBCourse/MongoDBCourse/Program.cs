@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using MongoDB.Driver;
 using MongoDB.Bson;
 using MongoDBCourse.POCO;
+using MoreLinq;
 
 namespace MongoDBCourse
 {
@@ -26,7 +27,7 @@ namespace MongoDBCourse
                 Server = new MongoServerAddress("localhost", 27017),
             });
 
-            await HomeWork22(client);
+            await HomeWork31(client);
         }
 
         private static async Task HomeWork21(MongoClient client)
@@ -82,6 +83,42 @@ namespace MongoDBCourse
             }
         }
 
+        private static async Task HomeWork31(MongoClient client)
+        {
+            var db = client.GetDatabase("school");
+            var collection = db.GetCollection<Student>("students");
 
+            var students = await collection.Find(new BsonDocument()).ToListAsync();
+
+            var updateMods = new List<UpdateOneModel<Student>>();
+            foreach (var student in students)
+            {
+                var minScore = student.Scores.Where(s => s.Type == "homework").MinBy(s => s.Value); //
+                var updateOperation = Builders<Student>.Update.PullFilter(s => s.Scores, s => s.Value == minScore.Value && s.Type == minScore.Type);
+                updateMods.Add(new UpdateOneModel<Student>(Builders<Student>.Filter.Where(s => s.ID == student.ID), updateOperation));
+            }
+
+            var result = await collection.BulkWriteAsync(updateMods);
+
+            if (result.ModifiedCount != 200)
+            {
+                Console.WriteLine("Invalid modified count");
+                return;
+            }
+
+            if (collection.Count(s => true) != 200)
+            {
+                Console.WriteLine("Invalid number of documents in database after request");
+                return;
+            }
+
+            var testElement = await collection.Find<Student>(s => s.ID == 137).FirstOrDefaultAsync();
+            if (testElement == null || testElement.Scores.Count != 3)
+            {
+                Console.WriteLine("Invalid test element");
+                Console.WriteLine(testElement?.ToJson<Student>(new MongoDB.Bson.IO.JsonWriterSettings() { Indent = true }));
+                return;
+            }
+        }
     }
 }
