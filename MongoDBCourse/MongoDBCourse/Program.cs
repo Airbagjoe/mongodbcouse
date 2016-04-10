@@ -27,7 +27,7 @@ namespace MongoDBCourse
                 Server = new MongoServerAddress("localhost", 27017),
             });
 
-            await HomeWork31(client);
+            await HomeWork44(client);
         }
 
         private static async Task HomeWork21(MongoClient client)
@@ -119,6 +119,16 @@ namespace MongoDBCourse
                 Console.WriteLine(testElement?.ToJson<Student>(new MongoDB.Bson.IO.JsonWriterSettings() { Indent = true }));
                 return;
             }
+        }
+
+        private static async Task HomeWork44(MongoClient client)
+        {
+            var db = client.GetDatabase("m101");
+            var collection = db.GetCollection<BsonDocument>("profile");
+
+            var longesterQuery = await collection.Find(p => p["ns"] == "school2.students" && p["op"] == "query").SortByDescending(p => p["millis"]).FirstAsync();
+
+            Console.WriteLine(longesterQuery);
         }
     }
 }
