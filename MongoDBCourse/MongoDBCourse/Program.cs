@@ -27,7 +27,7 @@ namespace MongoDBCourse
                 Server = new MongoServerAddress("localhost", 27017),
             });
 
-            await HomeWork44(client);
+            await HomeWork54(client);
         }
 
         private static async Task HomeWork21(MongoClient client)
@@ -129,6 +129,104 @@ namespace MongoDBCourse
             var longesterQuery = await collection.Find(p => p["ns"] == "school2.students" && p["op"] == "query").SortByDescending(p => p["millis"]).FirstAsync();
 
             Console.WriteLine(longesterQuery);
+        }
+
+        private static async Task HomeWork51(MongoClient client)
+        {
+            var db = client.GetDatabase("blog");
+            var collection = db.GetCollection<Post>("posts");
+
+            var posts = await collection.Find(p => true).ToListAsync();
+            var dictionary = new Dictionary<string, int>();
+            foreach (var post in posts)
+            {
+                foreach (var comment in post.Comments)
+                {
+                    int curValue;
+                    dictionary.TryGetValue(comment.Author, out curValue);
+                    dictionary[comment.Author] = curValue + 1;
+                }
+            }
+
+            foreach (var entry in dictionary.OrderByDescending(kvpair => kvpair.Value))
+            {
+                Console.WriteLine($"Comments: {entry.Value}, Author {entry.Key}");
+            }
+
+            Console.WriteLine("\n\n------------\n\n");
+
+            var groups = await collection.Aggregate().Unwind<Post, BsonDocument>(p => p.Comments).Group(p => p["comments"]["author"], g => new { Author = g.Key, NRComments = g.Sum(c => 1) }).SortByDescending(g => g.NRComments).ToListAsync();
+
+            foreach (var group in groups)
+            {
+                Console.WriteLine($"Comments: {group.NRComments}, Author {group.Author}");
+            }
+        }
+
+        private static async Task HomeWork52(MongoClient client)
+        {
+            var db = client.GetDatabase("test");
+            var collection = db.GetCollection<Zip>("zips");
+
+            var zips = await collection.Find(zip => zip.State == "NY" || zip.State == "CA").ToListAsync();
+
+            var store = new List<Zip>();
+            foreach (var zip in zips)
+            {
+                var key = zip.State + "-" + zip.City;
+                var stored = store.FirstOrDefault(z => z.State == zip.State && z.City == zip.City);
+                if (stored != null)
+                {
+                    stored.Population += zip.Population;
+                }
+                else
+                {
+                    store.Add(zip);
+                }
+            }
+            Console.WriteLine("Average: " + store.Where(zip => zip.Population > 25000).Average(zip => zip.Population));
+           
+
+            var groups = await collection.Aggregate().Match(z => (z.State == "CA" || z.State == "NY"))
+                .Group(z => new { State = z.State, City = z.City }, g => new { ID = g.Key, Pop = g.Sum(z =>z.Population) } )
+                .Match(g => g.Pop > 25000)
+                .ToListAsync();
+
+            Console.WriteLine("Average: "+groups.Average(z => z.Pop));
+        }
+
+        private static async Task HomeWork53(MongoClient client)
+        {
+            var db = client.GetDatabase("test");
+            var collection = db.GetCollection<Grades>("grades");
+
+            var grades = await collection.Find(g => true).ToListAsync();
+
+            var groups = await collection.Aggregate().Unwind<Grades, BsonDocument>(grade => grade.Scores)
+                .Match(Builders<BsonDocument>.Filter.Ne(grade => grade["scores.type"], "quiz"))
+                .Group(grade => new { Student = grade["student_id"], Class = grade["class_id"] }, g => new { ID = g.Key, Avg = g.Average(grade => (long)grade["scores.score"]) })
+                .Group(grade => grade.ID.Class, g => new { Class = g.Key, Avg = g.Average(grade => grade.Avg) })
+                .SortBy(grade => grade.Avg)
+                .ToListAsync();
+
+            foreach (var group in groups)
+            {
+                Console.WriteLine($"Class: {group.Class} Avg: {group.Avg}");
+            }
+        }
+
+        private static async Task HomeWork54(MongoClient client)
+        {
+            var db = client.GetDatabase("test");
+            var collection = db.GetCollection<Zip>("zips");
+
+            var zips = await collection.Find(z => true).ToListAsync();
+            Console.WriteLine("Total: "+ zips.Where(zip => char.IsNumber(zip.City[0])).Sum(zip => zip.Population));
+            string[] numbers = { "0", "1", "2", "3", "4", "5", "6", "7", "8", "9" };
+            var groups = await collection.Aggregate().Project(zip => new { FirstChar = zip.City.Substring(0, 1), Pop = zip.Population })
+                .Match(zip => numbers.Contains(zip.FirstChar))
+                .ToListAsync();
+            Console.WriteLine("Total: " + groups.Sum(zip => zip.Pop));
         }
     }
 }

@@ -74,9 +74,14 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="POCO\Comment.cs" />
     <Compile Include="POCO\Grade.cs" />
+    <Compile Include="POCO\Grades.cs" />
+    <Compile Include="POCO\Post.cs" />
     <Compile Include="POCO\Score.cs" />
     <Compile Include="POCO\Student.cs" />
+    <Compile Include="POCO\User.cs" />
+    <Compile Include="POCO\Zip.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
